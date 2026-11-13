@@ -545,27 +545,57 @@ class Infocenter extends IPSModule
         }
 
         if ($Message === VM_UPDATE) {
-            $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
-            $states = json_decode($this->GetBuffer('RuleState'), true);
-            if (!is_array($states)) $states = [];
-            if (is_array($rules)) {
-                foreach ($rules as $rule) {
-                    if ((int)$rule['VariableID'] !== $senderID || $rule['Operator'] !== 'CHANGED') continue;
-                    $key = (string)$rule['StateKey'];
-                    if (!isset($states[$key]) || !is_array($states[$key])) $states[$key] = [];
-                    $states[$key]['lastUpdate'] = time();
-                    $states[$key]['since'] = 0;
-                    $states[$key]['alarm'] = false;
-                    $alarmID = @IPS_GetObjectIDByIdent((string)$rule['AlarmIdent'], $this->InstanceID);
-                    if ($alarmID !== false && GetValueBoolean($alarmID)) SetValueBoolean($alarmID, false);
-                }
+            $semaphoreName = 'Infocenter_EvaluateRules_' . $this->InstanceID;
+            if (!IPS_SemaphoreEnter($semaphoreName, 60000)) {
+                $this->SendDebug('Evaluation', 'Variablenereignis nach 60 Sekunden Wartezeit verworfen, da eine Regelauswertung nicht abgeschlossen wurde.', 0);
+                return;
             }
-            $this->SetBuffer('RuleState', json_encode($states));
-            $this->EvaluateRules();
+
+            try {
+                $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
+                $states = json_decode($this->GetBuffer('RuleState'), true);
+                if (!is_array($states)) $states = [];
+                if (is_array($rules)) {
+                    foreach ($rules as $rule) {
+                        if ((int)$rule['VariableID'] !== $senderID || $rule['Operator'] !== 'CHANGED') continue;
+                        $key = (string)$rule['StateKey'];
+                        if (!isset($states[$key]) || !is_array($states[$key])) $states[$key] = [];
+                        $states[$key]['lastUpdate'] = time();
+                        $states[$key]['since'] = 0;
+                        $states[$key]['alarm'] = false;
+                        $alarmID = @IPS_GetObjectIDByIdent((string)$rule['AlarmIdent'], $this->InstanceID);
+                        if ($alarmID !== false && GetValueBoolean($alarmID)) SetValueBoolean($alarmID, false);
+                    }
+                }
+                $this->SetBuffer('RuleState', json_encode($states));
+                $this->EvaluateRulesLocked();
+            } finally {
+                IPS_SemaphoreLeave($semaphoreName);
+            }
         }
     }
 
+    /**
+     * Verhindert parallele Auswertungen derselben Instanz. Ohne Sperre können Timer-
+     * und Variablenereignisse dieselbe fällige Eskalation mehrfach auslösen, bevor
+     * der neue Regelzustand gespeichert wurde.
+     */
     public function EvaluateRules()
+    {
+        $semaphoreName = 'Infocenter_EvaluateRules_' . $this->InstanceID;
+        if (!IPS_SemaphoreEnter($semaphoreName, 0)) {
+            return;
+        }
+
+        try {
+            $this->EvaluateRulesLocked();
+        } finally {
+            IPS_SemaphoreLeave($semaphoreName);
+        }
+    }
+
+    /** Führt die Regelauswertung aus, während das Instanz-Semaphor gehalten wird. */
+    private function EvaluateRulesLocked(): void
     {
         $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
         if (!is_array($rules) || count($rules) === 0) {
@@ -721,8 +751,8 @@ class Infocenter extends IPSModule
             $this->StartCallsForRule($rule, true);
             $this->SendEchoAnnouncementForRule($rule, true);
             $this->SendWebPushForRule($rule, $alarmSince, true);
-            // Kein Nachholen mehrerer verpasster Intervalle auf einmal; der nächste Versand erfolgt in X Minuten.
-            $state['nextEscalationAt'] = $now + $intervalSeconds;
+            // Der nächste Versand erfolgt erst X Minuten nach Abschluss des aktuellen Versandlaufs.
+            $state['nextEscalationAt'] = time() + $intervalSeconds;
         }
     }
 
@@ -740,14 +770,28 @@ class Infocenter extends IPSModule
             return 'Behoben ' . $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
         }
         if ($escalation) {
-            return 'Eskalation ' . $this->GetEscalationCount($rule) . ': ' . $messageText;
+            return 'Eskalation ' . $this->GetEscalationCount($rule) . ' ' . $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
         }
         return $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
     }
 
     private function NormalizeMessageType(string $messageType): string
     {
+        $messageType = trim($messageType);
         return in_array($messageType, ['Info', 'Warnung', 'Alarm'], true) ? $messageType : 'Alarm';
+    }
+
+    /** Kopfzeile für den WebPush-Eintrag in der Visu; der Meldungstext steht separat im Body. */
+    private function FormatVisualMessageHeader(array $rule, bool $escalation, bool $resolved): string
+    {
+        $messageType = $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'));
+        if ($resolved) {
+            return 'Behoben ' . $messageType;
+        }
+        if ($escalation) {
+            return 'Eskalation ' . $this->GetEscalationCount($rule) . ' ' . $messageType;
+        }
+        return $messageType;
     }
 
     /** Liefert ein semantisches Tile-Symbol passend zur Meldungsart und Phase. */
@@ -1053,7 +1097,13 @@ class Infocenter extends IPSModule
         // damit auch Zeitstempel und aktueller Variablenwert in der Pushnachricht vorkommen.
         $messageHeader = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
         $title = $this->TruncateText($messageHeader, 32);
+        $messageType = $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'));
         $notificationIcon = $this->GetNotificationIcon($rule, $escalation, $resolved);
+        // Eine Info darf kein Warnsymbol übernehmen. Das Icon bleibt absichtlich leer;
+        // Behoben und Eskalationen erhalten unabhängig vom Meldungstyp ihr eigenes Symbol.
+        if (!$resolved && !$escalation && $messageType === 'Info') {
+            $notificationIcon = '';
+        }
         $sound = $resolved ? '' : $this->NormalizePushSound((string)($rule['PushSound'] ?? 'alarm'));
         $variableID = (int)($rule['VariableID'] ?? 0);
         if ($variableID <= 0 || !IPS_VariableExists($variableID)) {
@@ -1091,8 +1141,10 @@ class Infocenter extends IPSModule
                 // Kachel-Visualisierung (Tile Visualization), verfügbar ab IP-Symcon 7.
                 } elseif (str_contains($moduleName, 'kachel') || str_contains($moduleName, 'tile') || str_contains($moduleName, 'visualization') || str_contains($moduleName, 'visualisierung')) {
                     if (function_exists('VISU_PostNotificationEx')) {
+                        $this->SendDebug('PushNotification', 'Tile-Push: Typ=' . ($resolved ? 'Behoben' : ($escalation ? 'Eskalation' : $messageType)) . ', Icon=' . ($notificationIcon !== '' ? $notificationIcon : '(kein Icon)'), 0);
                         $result = VISU_PostNotificationEx($visualizationID, $title, $text, $notificationIcon, $sound, 0);
                     } elseif (function_exists('VISU_PostNotification')) {
+                        $this->SendDebug('PushNotification', 'Tile-Push nutzt VISU_PostNotification ohne separates Icon-Feld; Symcon verwendet dabei die Geräte-Standardsymbole. Für die Meldungsart-Farben VISU_PostNotificationEx verwenden.', 0);
                         $legacyType = $resolved ? 'Success' : ($escalation ? 'Alert' : match ($this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'))) {
                             'Info' => 'Info',
                             'Warnung' => 'Warning',
@@ -1238,8 +1290,10 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $title = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
-        $pushText = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
+        // Die Visu bekommt Kopfzeile und Meldungstext getrennt, damit sie beide
+        // Zeilen unabhängig darstellen und Typ/Phase passend einfärben kann.
+        $title = $this->FormatVisualMessageHeader($rule, $escalation, $resolved);
+        $pushText = $text;
         $variableID = (int)($rule['VariableID'] ?? 0);
         $variableName = ($variableID > 0 && IPS_VariableExists($variableID)) ? $this->TruncateText(IPS_GetName($variableID), 30) : '';
         $condition = $this->ConditionName((string)($rule['Operator'] ?? '=='), (string)($rule['CompareValue'] ?? ''), ((int)($rule['CompareVariableID'] ?? 0) > 0), (int)($rule['CompareVariableID'] ?? 0));
