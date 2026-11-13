@@ -728,8 +728,7 @@ class Infocenter extends IPSModule
         $nextEscalationAt = (int)($state['nextEscalationAt'] ?? 0);
         if ($nextEscalationAt <= 0) {
             // Bei neu aktivierter Eskalation bzw. nach einem Neustart beginnt das Intervall ab jetzt.
-            // Das nächste Intervall beginnt erst nach Abschluss aller Versandkanäle.
-            $state['nextEscalationAt'] = time() + $intervalSeconds;
+            $state['nextEscalationAt'] = $now + $intervalSeconds;
             return;
         }
 
@@ -742,8 +741,8 @@ class Infocenter extends IPSModule
             $this->StartCallsForRule($rule, true);
             $this->SendEchoAnnouncementForRule($rule, true);
             $this->SendWebPushForRule($rule, $alarmSince, true);
-            // Kein Nachholen mehrerer verpasster Intervalle auf einmal; der nächste Versand erfolgt in X Minuten.
-            $state['nextEscalationAt'] = $now + $intervalSeconds;
+            // Der nächste Versand erfolgt erst X Minuten nach Abschluss des aktuellen Versandlaufs.
+            $state['nextEscalationAt'] = time() + $intervalSeconds;
         }
     }
 
