@@ -545,23 +545,33 @@ class Infocenter extends IPSModule
         }
 
         if ($Message === VM_UPDATE) {
-            $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
-            $states = json_decode($this->GetBuffer('RuleState'), true);
-            if (!is_array($states)) $states = [];
-            if (is_array($rules)) {
-                foreach ($rules as $rule) {
-                    if ((int)$rule['VariableID'] !== $senderID || $rule['Operator'] !== 'CHANGED') continue;
-                    $key = (string)$rule['StateKey'];
-                    if (!isset($states[$key]) || !is_array($states[$key])) $states[$key] = [];
-                    $states[$key]['lastUpdate'] = time();
-                    $states[$key]['since'] = 0;
-                    $states[$key]['alarm'] = false;
-                    $alarmID = @IPS_GetObjectIDByIdent((string)$rule['AlarmIdent'], $this->InstanceID);
-                    if ($alarmID !== false && GetValueBoolean($alarmID)) SetValueBoolean($alarmID, false);
-                }
+            $semaphoreName = 'Infocenter_EvaluateRules_' . $this->InstanceID;
+            if (!IPS_SemaphoreEnter($semaphoreName, 60000)) {
+                $this->SendDebug('Evaluation', 'Variablenereignis nach 60 Sekunden Wartezeit verworfen, da eine Regelauswertung nicht abgeschlossen wurde.', 0);
+                return;
             }
-            $this->SetBuffer('RuleState', json_encode($states));
-            $this->EvaluateRules();
+
+            try {
+                $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
+                $states = json_decode($this->GetBuffer('RuleState'), true);
+                if (!is_array($states)) $states = [];
+                if (is_array($rules)) {
+                    foreach ($rules as $rule) {
+                        if ((int)$rule['VariableID'] !== $senderID || $rule['Operator'] !== 'CHANGED') continue;
+                        $key = (string)$rule['StateKey'];
+                        if (!isset($states[$key]) || !is_array($states[$key])) $states[$key] = [];
+                        $states[$key]['lastUpdate'] = time();
+                        $states[$key]['since'] = 0;
+                        $states[$key]['alarm'] = false;
+                        $alarmID = @IPS_GetObjectIDByIdent((string)$rule['AlarmIdent'], $this->InstanceID);
+                        if ($alarmID !== false && GetValueBoolean($alarmID)) SetValueBoolean($alarmID, false);
+                    }
+                }
+                $this->SetBuffer('RuleState', json_encode($states));
+                $this->EvaluateRulesLocked();
+            } finally {
+                IPS_SemaphoreLeave($semaphoreName);
+            }
         }
     }
 
