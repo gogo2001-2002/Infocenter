@@ -747,6 +747,7 @@ class Infocenter extends IPSModule
 
     private function NormalizeMessageType(string $messageType): string
     {
+        $messageType = trim($messageType);
         return in_array($messageType, ['Info', 'Warnung', 'Alarm'], true) ? $messageType : 'Alarm';
     }
 
@@ -1053,7 +1054,13 @@ class Infocenter extends IPSModule
         // damit auch Zeitstempel und aktueller Variablenwert in der Pushnachricht vorkommen.
         $messageHeader = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
         $title = $this->TruncateText($messageHeader, 32);
+        $messageType = $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'));
         $notificationIcon = $this->GetNotificationIcon($rule, $escalation, $resolved);
+        // Eine Info darf kein Warnsymbol übernehmen. Das Icon bleibt absichtlich leer;
+        // Behoben und Eskalationen erhalten unabhängig vom Meldungstyp ihr eigenes Symbol.
+        if (!$resolved && !$escalation && $messageType === 'Info') {
+            $notificationIcon = '';
+        }
         $sound = $resolved ? '' : $this->NormalizePushSound((string)($rule['PushSound'] ?? 'alarm'));
         $variableID = (int)($rule['VariableID'] ?? 0);
         if ($variableID <= 0 || !IPS_VariableExists($variableID)) {
@@ -1091,8 +1098,10 @@ class Infocenter extends IPSModule
                 // Kachel-Visualisierung (Tile Visualization), verfügbar ab IP-Symcon 7.
                 } elseif (str_contains($moduleName, 'kachel') || str_contains($moduleName, 'tile') || str_contains($moduleName, 'visualization') || str_contains($moduleName, 'visualisierung')) {
                     if (function_exists('VISU_PostNotificationEx')) {
+                        $this->SendDebug('PushNotification', 'Tile-Push: Typ=' . ($resolved ? 'Behoben' : ($escalation ? 'Eskalation' : $messageType)) . ', Icon=' . ($notificationIcon !== '' ? $notificationIcon : '(kein Icon)'), 0);
                         $result = VISU_PostNotificationEx($visualizationID, $title, $text, $notificationIcon, $sound, 0);
                     } elseif (function_exists('VISU_PostNotification')) {
+                        $this->SendDebug('PushNotification', 'Tile-Push nutzt VISU_PostNotification ohne separates Icon-Feld; Symcon verwendet dabei die Geräte-Standardsymbole. Für die Meldungsart-Farben VISU_PostNotificationEx verwenden.', 0);
                         $legacyType = $resolved ? 'Success' : ($escalation ? 'Alert' : match ($this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'))) {
                             'Info' => 'Info',
                             'Warnung' => 'Warning',
