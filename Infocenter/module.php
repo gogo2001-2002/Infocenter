@@ -565,7 +565,27 @@ class Infocenter extends IPSModule
         }
     }
 
+    /**
+     * Verhindert parallele Auswertungen derselben Instanz. Ohne Sperre können Timer-
+     * und Variablenereignisse dieselbe fällige Eskalation mehrfach auslösen, bevor
+     * der neue Regelzustand gespeichert wurde.
+     */
     public function EvaluateRules()
+    {
+        $semaphoreName = 'Infocenter_EvaluateRules_' . $this->InstanceID;
+        if (!IPS_SemaphoreEnter($semaphoreName, 0)) {
+            return;
+        }
+
+        try {
+            $this->EvaluateRulesLocked();
+        } finally {
+            IPS_SemaphoreLeave($semaphoreName);
+        }
+    }
+
+    /** Führt die Regelauswertung aus, während das Instanz-Semaphor gehalten wird. */
+    private function EvaluateRulesLocked(): void
     {
         $rules = json_decode($this->GetBuffer('RulesRuntime'), true);
         if (!is_array($rules) || count($rules) === 0) {
@@ -708,7 +728,8 @@ class Infocenter extends IPSModule
         $nextEscalationAt = (int)($state['nextEscalationAt'] ?? 0);
         if ($nextEscalationAt <= 0) {
             // Bei neu aktivierter Eskalation bzw. nach einem Neustart beginnt das Intervall ab jetzt.
-            $state['nextEscalationAt'] = $now + $intervalSeconds;
+            // Das nächste Intervall beginnt erst nach Abschluss aller Versandkanäle.
+            $state['nextEscalationAt'] = time() + $intervalSeconds;
             return;
         }
 
