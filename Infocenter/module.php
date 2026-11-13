@@ -770,7 +770,7 @@ class Infocenter extends IPSModule
             return 'Behoben ' . $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
         }
         if ($escalation) {
-            return 'Eskalation ' . $this->GetEscalationCount($rule) . ': ' . $messageText;
+            return 'Eskalation ' . $this->GetEscalationCount($rule) . ' ' . $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
         }
         return $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')) . ': ' . $messageText;
     }
@@ -779,6 +779,19 @@ class Infocenter extends IPSModule
     {
         $messageType = trim($messageType);
         return in_array($messageType, ['Info', 'Warnung', 'Alarm'], true) ? $messageType : 'Alarm';
+    }
+
+    /** Kopfzeile für den WebPush-Eintrag in der Visu; der Meldungstext steht separat im Body. */
+    private function FormatVisualMessageHeader(array $rule, bool $escalation, bool $resolved): string
+    {
+        $messageType = $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm'));
+        if ($resolved) {
+            return 'Behoben ' . $messageType;
+        }
+        if ($escalation) {
+            return 'Eskalation ' . $this->GetEscalationCount($rule) . ' ' . $messageType;
+        }
+        return $messageType;
     }
 
     /** Liefert ein semantisches Tile-Symbol passend zur Meldungsart und Phase. */
@@ -1277,8 +1290,10 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $title = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
-        $pushText = $this->FormatMessageHeader($text, $escalation, $rule, $resolved);
+        // Die Visu bekommt Kopfzeile und Meldungstext getrennt, damit sie beide
+        // Zeilen unabhängig darstellen und Typ/Phase passend einfärben kann.
+        $title = $this->FormatVisualMessageHeader($rule, $escalation, $resolved);
+        $pushText = $text;
         $variableID = (int)($rule['VariableID'] ?? 0);
         $variableName = ($variableID > 0 && IPS_VariableExists($variableID)) ? $this->TruncateText(IPS_GetName($variableID), 30) : '';
         $condition = $this->ConditionName((string)($rule['Operator'] ?? '=='), (string)($rule['CompareValue'] ?? ''), ((int)($rule['CompareVariableID'] ?? 0) > 0), (int)($rule['CompareVariableID'] ?? 0));
