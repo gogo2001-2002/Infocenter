@@ -8,9 +8,13 @@ Infocenter überwacht Variablen in IP-Symcon anhand konfigurierbarer Bedingungen
 
 - Erstmeldung: `Info: Meldungstext`, `Warnung: Meldungstext` oder `Alarm: Meldungstext`
 - Behobenmeldung: `Behoben Info: Meldungstext`, `Behoben Warnung: Meldungstext` oder `Behoben Alarm: Meldungstext`
-- Eskalation: `Eskalation N: Meldungstext`
+- Eskalation: `Eskalation N Info: Meldungstext`, `Eskalation N Warnung: Meldungstext` oder `Eskalation N Alarm: Meldungstext`
 
-Eine Eskalation wird immer mit rotem Alarmsymbol dargestellt. Eine Behobenmeldung erhält ein Erfolgssymbol. Für Info wird kein Statussymbol gesetzt; Warnung erhält ein Warnsymbol. Die Push-APIs von WebFront und Tile bieten keinen direkten Farbwert; WebFront erhält den Typ im Kopftext und Tile zusätzlich ein semantisches Symbol.
+Eine Eskalation enthält jetzt ebenfalls den Meldungstyp. Behoben- und Erstmeldungen behalten ihr bisheriges Format. Die WebPush-Daten für die Visu trennen Kopfzeile und Meldungstext, damit beide in eigenen Zeilen erscheinen können.
+
+## WebVisu
+
+Für die Darstellung in der bestehenden WebVisu gilt: Rahmenfarbe nach Meldungstyp (Info neutral, Warnung gelb, Alarm rot), Punktfarbe nach Phase (Erstmeldung farblos, Eskalation rot, Behoben grün). Die erste Zeile enthält Phase und Meldungstyp, die zweite Zeile ausschließlich den konfigurierten Meldungstext. Die erforderliche Anpassung des WebVisu-Renderers ist in [WEBVISU-INTEGRATION.md](WEBVISU-INTEGRATION.md) beschrieben.
 
 ## Meldungstyp
 
