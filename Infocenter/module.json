@@ -1,0 +1,16 @@
+{
+  "id": "{7C8619B1-F6D6-BD07-A4D5-072E5181B93D}",
+  "name": "Infocenter",
+  "type": 3,
+  "vendor": "Custom",
+  "aliases": [
+    "Infocenter",
+    "Meldungszentrale"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "INF",
+  "version": "1.0",
+  "build": 1
+}
