@@ -17,10 +17,16 @@ Der bestehende Renderer der WebVisu liest bislang vor allem `message.text` und z
 Als Erkennung neuer Infocenter-Kopfzeilen kann der Renderer diesen Ausdruck verwenden:
 
 ```js
-const isInfocenterHeader = /^(?:(?:Eskalation\\s+\\d+|Behoben)\\s+)?(?:Info|Warnung|Alarm)$/u.test(String(message.title || '').trim());
-const typeMatch = String(message.title || '').trim().match(/(?:^|\\s)(Info|Warnung|Alarm)$/u);
+const isInfocenterHeader = /^(?:(?:Eskalation\s+\d+|Behoben)\s+)?(?:Info|Warnung|Alarm)$/u.test(String(message.title || '').trim());
+const typeMatch = String(message.title || '').trim().match(/(?:^|\s)(Info|Warnung|Alarm)$/u);
 const messageType = typeMatch ? typeMatch[1] : '';
-const messageLine = String(message.body || '').split(/\\r?\\n/, 1)[0].trim();
+const messageLine = String(message.body || '').split(/\r?\n/, 1)[0].trim();
+const borderClass = messageType === 'Warnung' ? 'border-amber-500'
+  : messageType === 'Alarm' ? 'border-rose-600'
+  : 'border-cardborder';
+const dotStyle = message.alarmState === 'escalation' ? 'background-color:#ad3945;border-color:#92303a;'
+  : message.alarmState === 'resolved' ? 'background-color:#32836f;border-color:#286e5d;'
+  : 'background-color:transparent;border-color:transparent;';
 ```
 
 Nur wenn `isInfocenterHeader` wahr ist, werden die getrennten Felder für die zwei sichtbaren Zeilen benutzt. Für andere WebPush-Nachrichten kann die bisherige Darstellung erhalten bleiben. Den Titel nicht aus `message.text` ableiten: Der WebPush-Helper ergänzt dort weiterhin Betreff und Detailzeilen.
