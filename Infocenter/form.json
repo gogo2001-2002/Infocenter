@@ -142,7 +142,7 @@
                 "value": "UPDATED"
               }
             ],
-            "onChange": "ALM_RulesChanged($id, $Operator);"
+            "onChange": "INF_RulesChanged($id, $Operator);"
           }
         },
         {
@@ -555,7 +555,7 @@
                   "value": "UPDATED"
                 }
               ],
-              "onChange": "ALM_RulesChanged($id, $Operator);"
+              "onChange": "INF_RulesChanged($id, $Operator);"
             },
             {
               "type": "ValidationTextBox",
