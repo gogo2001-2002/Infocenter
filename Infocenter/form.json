@@ -83,6 +83,16 @@
           }
         },
         {
+          "name": "RecoveryText",
+          "caption": "Behoben-Meldungstext",
+          "width": "300px",
+          "add": "",
+          "edit": {
+            "type": "ValidationTextBox",
+            "maxLength": 256
+          }
+        },
+        {
           "name": "VariableID",
           "caption": "Zu überwachende Variable",
           "width": "360px",
@@ -132,7 +142,7 @@
                 "value": "UPDATED"
               }
             ],
-            "onChange": "ALM_RulesChanged($id, $Operator);"
+            "onChange": "INF_RulesChanged($id, $Operator);"
           }
         },
         {
@@ -490,6 +500,12 @@
           "maxLength": 256
         },
         {
+          "type": "ValidationTextBox",
+          "name": "RecoveryText",
+          "caption": "Behoben-Meldungstext (leer = Meldungstext)",
+          "maxLength": 256
+        },
+        {
           "type": "Label",
           "caption": " "
         },
@@ -539,7 +555,7 @@
                   "value": "UPDATED"
                 }
               ],
-              "onChange": "ALM_RulesChanged($id, $Operator);"
+              "onChange": "INF_RulesChanged($id, $Operator);"
             },
             {
               "type": "ValidationTextBox",
