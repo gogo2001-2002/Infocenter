@@ -3,7 +3,7 @@
 Die WebPush-Ausgabe des Infocenters liefert Kopfzeile und Meldungstext getrennt:
 
 - `message.title`: `Info`, `Warnung`, `Alarm`, `Eskalation N Warnung` oder `Behoben Alarm`
-- erste Zeile von `message.body`: ausschließlich der in der Bedingung konfigurierte Meldungstext
+- erste Zeile von `message.body`: der phasenabhängige Meldungstext (bei `resolved` der optionale Behoben-Meldungstext, sonst der normale Meldungstext)
 - `message.alarmState`: `initial`, `escalation` oder `resolved`
 
 Der bestehende Renderer der WebVisu liest bislang vor allem `message.text` und zeichnet für Erstmeldungen einen gelben Punkt. Er muss die Anzeige für Infocenter-Einträge wie folgt aufbauen:
