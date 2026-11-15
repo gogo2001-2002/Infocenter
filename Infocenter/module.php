@@ -328,6 +328,13 @@ class Infocenter extends IPSModule
                 $configuredRule['MessageType'] = $messageType;
                 $rulesChanged = true;
             }
+            // Der separate Behoben-Text ist optional; leer oder fehlend verwendet weiterhin den Meldungstext.
+            if (!array_key_exists('RecoveryText', $configuredRule)) {
+                $configuredRule['RecoveryText'] = '';
+                $rulesChanged = true;
+            } else {
+                $configuredRule['RecoveryText'] = trim((string)$configuredRule['RecoveryText']);
+            }
             // Migriert die frühere gemeinsame Entwarnungsoption in fünf Kanaloptionen.
             // Der Marker sorgt dafür, dass eine von Symcon ausgelassene Checkbox nach der
             // Migration als bewusst deaktiviert gilt und nicht erneut auf true springt.
@@ -447,6 +454,7 @@ class Infocenter extends IPSModule
                 'PushOnEscalation' => filter_var($rule['PushOnEscalation'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'PushVisualizationIDs' => $this->GetRulePushVisualizationIDs($rule),
                 'PushText' => trim((string)($rule['PushText'] ?? '')),
+                'RecoveryText' => trim((string)($rule['RecoveryText'] ?? '')),
                 'MessageType' => $this->NormalizeMessageType((string)($rule['MessageType'] ?? 'Alarm')),
                 'EmailOnFirst' => filter_var($rule['EmailOnFirst'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'EmailOnEscalation' => filter_var($rule['EmailOnEscalation'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -757,6 +765,21 @@ class Infocenter extends IPSModule
     }
 
     /**
+     * Liefert den Text für die aktuelle Phase. Für Behobenmeldungen gilt der optionale
+     * RecoveryText; wenn er leer ist, bleibt der bisherige Meldungstext erhalten.
+     */
+    private function GetMessageText(array $rule, bool $resolved = false): string
+    {
+        if ($resolved) {
+            $recoveryText = trim((string)($rule['RecoveryText'] ?? ''));
+            if ($recoveryText !== '') {
+                return $recoveryText;
+            }
+        }
+        return trim((string)($rule['PushText'] ?? ''));
+    }
+
+    /**
      * Formatiert den Alarmtext abhängig von der Phase. Bei Eskalationen wird der Präfix
      * genau einmal ergänzt; bei Erstmeldungen bleibt der eigentliche Alarmtext unverändert.
      */
@@ -864,7 +887,7 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $alarmText = trim((string)($rule['PushText'] ?? ''));
+        $alarmText = $this->GetMessageText($rule, $resolved);
         if ($alarmText === '') {
             $alarmText = 'Alarm';
         }
@@ -925,7 +948,7 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $alarmText = trim((string)($rule['PushText'] ?? ''));
+        $alarmText = $this->GetMessageText($rule, $resolved);
         if ($alarmText === '') {
             $alarmText = 'Alarm';
         }
@@ -992,7 +1015,7 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $pushText = trim((string)($rule['PushText'] ?? ''));
+        $pushText = $this->GetMessageText($rule, $resolved);
         $notificationText = $this->FormatMessageHeader($pushText, $escalation, $rule, $resolved);
 
         $variableID = (int)($rule['VariableID'] ?? 0);
@@ -1086,7 +1109,7 @@ class Infocenter extends IPSModule
             $this->SendDebug('PushNotification', 'Push abgebrochen: Für diese Regel ist keine Push-Visualisierung ausgewählt.', 0);
             return;
         }
-        $text = trim((string)($rule['PushText'] ?? ''));
+        $text = $this->GetMessageText($rule, $resolved);
         if ($text === '') {
             $this->SendDebug('PushNotification', 'Push abgebrochen: Der Push-Text dieser Bedingung ist leer.', 0);
             return;
@@ -1111,7 +1134,7 @@ class Infocenter extends IPSModule
             return;
         }
 
-        $pushText = $this->FormatMessageHeader((string)($rule['PushText'] ?? ''), $escalation, $rule, $resolved);
+        $pushText = $this->FormatMessageHeader($this->GetMessageText($rule, $resolved), $escalation, $rule, $resolved);
         $variableName = $this->TruncateText(IPS_GetName($variableID), 25);
         $condition = $this->ConditionName((string)($rule['Operator'] ?? '=='), (string)($rule['CompareValue'] ?? ''), ((int)($rule['CompareVariableID'] ?? 0) > 0), (int)($rule['CompareVariableID'] ?? 0));
         $condition = $this->TruncateText($condition, 24);
@@ -1278,7 +1301,7 @@ class Infocenter extends IPSModule
             }
         }
 
-        $text = trim((string)($rule['PushText'] ?? ''));
+        $text = $this->GetMessageText($rule, $resolved);
         if ($text === '') {
             $this->SendDebug('WebPushNotification', 'WebPush abgebrochen: Der Alarmtext dieser Bedingung ist leer.', 0);
             return;
