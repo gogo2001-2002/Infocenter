@@ -83,6 +83,16 @@
           }
         },
         {
+          "name": "RecoveryText",
+          "caption": "Behoben-Meldungstext",
+          "width": "300px",
+          "add": "",
+          "edit": {
+            "type": "ValidationTextBox",
+            "maxLength": 256
+          }
+        },
+        {
           "name": "VariableID",
           "caption": "Zu überwachende Variable",
           "width": "360px",
@@ -487,6 +497,12 @@
           "type": "ValidationTextBox",
           "name": "PushText",
           "caption": "Meldungstext",
+          "maxLength": 256
+        },
+        {
+          "type": "ValidationTextBox",
+          "name": "RecoveryText",
+          "caption": "Behoben-Meldungstext (leer = Meldungstext)",
           "maxLength": 256
         },
         {
