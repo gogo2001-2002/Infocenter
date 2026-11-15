@@ -9,6 +9,7 @@ IP-Symcon-Modul zur Überwachung von Variablen und zum Versand konfigurierbarer 
 - Push an WebFront- und Tile-Visualisierungen
 - WebPush, E-Mail, TelefonansageDirekt und EchoRemote
 - Erstmeldung, Eskalation und „Behoben melden“ getrennt je Kanal
+- Optional eigener Meldungstext für die Behobenmeldung pro Regel (leer = normaler Meldungstext)
 - Bis zu vier Push-Visualisierungen und vier EchoRemote-Instanzen pro Regel
 - Vergleich mit einem festen Wert oder einer Vergleichsvariable
 - Dynamische Auswahl verfügbarer Visualisierungen, Echo-Geräte und WebPush-Ziele
@@ -36,7 +37,7 @@ Ist eine Vergleichsvariable ausgewählt, wird ausschließlich deren aktueller We
 
 ## Eskalationen und Entwarnung
 
-Eskalationen werden im konfigurierten Intervall erneut gesendet, solange die Regel aktiv bleibt. Die Nummer wird als `Eskalation N: Meldungstext` ausgegeben. Für Push, WebPush, E-Mail, Anruf und Echo kann „Behoben melden“ jeweils unabhängig aktiviert werden.
+Eskalationen werden im konfigurierten Intervall erneut gesendet, solange die Regel aktiv bleibt. Die Nummer wird als `Eskalation N: Meldungstext` ausgegeben. Für Push, WebPush, E-Mail, Anruf und Echo kann „Behoben melden“ jeweils unabhängig aktiviert werden. Unter dem normalen Meldungstext kann pro Regel ein eigener Behoben-Meldungstext hinterlegt werden; bleibt er leer, wird der normale Meldungstext verwendet.
 
 ## Übernahme vorhandener Regeln
 
