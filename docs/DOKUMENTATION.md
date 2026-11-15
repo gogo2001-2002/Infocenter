@@ -10,7 +10,7 @@ Infocenter überwacht Variablen in IP-Symcon anhand konfigurierbarer Bedingungen
 - Behobenmeldung: `Behoben Info: Meldungstext`, `Behoben Warnung: Meldungstext` oder `Behoben Alarm: Meldungstext`
 - Eskalation: `Eskalation N Info: Meldungstext`, `Eskalation N Warnung: Meldungstext` oder `Eskalation N Alarm: Meldungstext`
 
-Eine Eskalation enthält jetzt ebenfalls den Meldungstyp. Behoben- und Erstmeldungen behalten ihr bisheriges Format. Die WebPush-Daten für die Visu trennen Kopfzeile und Meldungstext, damit beide in eigenen Zeilen erscheinen können.
+Eine Eskalation enthält ebenfalls den Meldungstyp. Für jede Regel kann unter dem Meldungstext ein eigener **Behoben-Meldungstext** angegeben werden. Ist dieses Feld leer, wird weiterhin der normale Meldungstext verwendet. Die Vorgabe gilt für Push, WebPush, E-Mail, Anruf und Echo. Die WebPush-Daten für die Visu trennen Kopfzeile und phasenabhängigen Meldungstext, damit beide in eigenen Zeilen erscheinen können.
 
 ## WebVisu
 
